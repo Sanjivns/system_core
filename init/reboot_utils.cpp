@@ -70,7 +70,15 @@ void SetFatalRebootTarget(const std::optional<std::string>& reboot_target) {
         // We already default to bootloader if no setting is provided.
     } else {
         const std::string kRebootTargetStringPattern = kRebootTargetString + "=";
-        start_pos += sizeof(kRebootTargetStringPattern) - 1;
+        // NOTE: kRebootTargetStringPattern is a std::string, so sizeof() returns the
+        // size of the std::string object (32 bytes), not the length of its contents.
+        // Using sizeof() here advanced start_pos by only 31 characters instead of 37,
+        // which made init read "arget=recovery" (and in some layouts
+        // "reboot_target=recovery") instead of "recovery". Passing that garbage to
+        // reboot(2) meant the bootloader never saw a valid recovery target, so a
+        // fatal crash could never reboot into recovery and the device stayed on the
+        // OEM logo. Use .length() to advance past the key and '='.
+        start_pos += kRebootTargetStringPattern.length();
 
         auto end_pos = cmdline.find(' ', start_pos);
         // if end_pos isn't found, then we've run off the end, but this is okay as this is the last
